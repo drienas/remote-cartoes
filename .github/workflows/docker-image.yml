@@ -1,0 +1,44 @@
+name: Docker Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      OWNER: drienas
+      REPO: remote-cartoes
+      PACKAGE: dsg-remote-cartoes
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - name: Log into registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag docker.pkg.github.com/${{ env.OWNER }}/${{ env.REPO }}/${{ env.PACKAGE }}:${{ steps.get_version.outputs.VERSION }}
+
+      - name: Deploy the Docker image
+        run: docker push docker.pkg.github.com/${{ env.OWNER }}/${{ env.REPO }}/${{ env.PACKAGE }}:${{ steps.get_version.outputs.VERSION }}
+
+      - name: Docker tag latest
+        run: docker tag docker.pkg.github.com/${{ env.OWNER }}/${{ env.REPO }}/${{ env.PACKAGE }}:${{ steps.get_version.outputs.VERSION }} docker.pkg.github.com/${{ env.OWNER }}/${{ env.REPO }}/${{ env.PACKAGE }}
+
+      - name: Docker push latest
+        run: docker push docker.pkg.github.com/${{ env.OWNER }}/${{ env.REPO }}/${{ env.PACKAGE }}
+
+      - uses: actions/delete-package-versions@v1
+        with:
+          owner: ${{ env.OWNER }}
+          repo: ${{ env.REPO }}
+          package-name: ${{ env.PACKAGE }}
+          token: ${{ secrets.GITHUB_TOKEN }}
